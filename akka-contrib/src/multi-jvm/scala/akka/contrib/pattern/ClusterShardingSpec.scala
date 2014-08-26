@@ -72,9 +72,10 @@ object ClusterShardingSpec extends MultiNodeConfig {
   case object Stop
   final case class CounterChanged(delta: Int)
 
-  class Counter extends PersistentActor {
+  class Counter extends PersistentActor with ActorLogging {
     import ShardRegion.Passivate
 
+    log.debug("# constructor Counter: {}", self.path.name)
     context.setReceiveTimeout(120.seconds)
 
     // self.path.parent.parent.name is the type name (utf-8 URL-encoded)
@@ -85,23 +86,32 @@ object ClusterShardingSpec extends MultiNodeConfig {
     //#counter-actor
 
     override def postStop(): Unit = {
+      log.debug("# postStop Counter: {}", self.path.name)
       super.postStop()
       // Simulate that the passivation takes some time, to verify passivation bufffering
       Thread.sleep(500)
     }
     //#counter-actor
 
-    def updateState(event: CounterChanged): Unit =
+    def updateState(event: CounterChanged): Unit = {
+      log.debug("# updateState Counter: {} {}", self.path.name, event)
       count += event.delta
+    }
 
     override def receiveRecover: Receive = {
       case evt: CounterChanged ⇒ updateState(evt)
     }
 
+    Thread.sleep(100)
+
     override def receiveCommand: Receive = {
-      case Increment      ⇒ persist(CounterChanged(+1))(updateState)
-      case Decrement      ⇒ persist(CounterChanged(-1))(updateState)
-      case Get(_)         ⇒ sender() ! count
+      case Increment ⇒
+        log.debug("# receiveCommand Counter: {} {}", self.path.name, Increment)
+        persist(CounterChanged(+1))(updateState)
+      case Decrement ⇒ persist(CounterChanged(-1))(updateState)
+      case Get(_) ⇒
+        log.debug("# Get Counter: {} count {}", self.path.name, count)
+        sender() ! count
       case ReceiveTimeout ⇒ context.parent ! Passivate(stopMessage = Stop)
       case Stop           ⇒ context.stop(self)
     }
@@ -744,6 +754,7 @@ class ClusterShardingSpec extends MultiNodeSpec(ClusterShardingSpec) with STMult
         }
 
         for (i ← 2 to 12) {
+          log.debug("# sending Get({})", i)
           persistentRegion ! Get(i)
           expectMsg(1)
         }
