@@ -147,6 +147,7 @@ abstract class Flow[T] {
 
   /**
    * Discard the given number of elements at the beginning of the stream.
+   * No elements will be dropped if `n` is zero or negative.
    */
   def drop(n: Int): Flow[T]
 
@@ -160,6 +161,9 @@ abstract class Flow[T] {
    * number of elements. Due to input buffering some elements may have been
    * requested from upstream publishers that will then not be processed downstream
    * of this step.
+   *
+   * The stream will be completed without producing any elements if `n` is zero
+   * or negative.
    */
   def take(n: Int): Flow[T]
 
@@ -177,6 +181,8 @@ abstract class Flow[T] {
   /**
    * Chunk up this stream into groups of the given size, with the last group
    * possibly smaller than requested due to end-of-stream.
+   *
+   * `n` must be positive
    */
   def grouped(n: Int): Flow[java.util.List[T]]
 
@@ -186,6 +192,8 @@ abstract class Flow[T] {
    * Empty groups will not be emitted if no elements are received from upstream.
    * The last group before end-of-stream will contain the buffered elements
    * since the previously emitted group.
+   *
+   * `n` must be positive, `d` must be greater than 0 seconds
    */
   def groupedWithin(n: Int, d: FiniteDuration): Flow[java.util.List[T]]
 
